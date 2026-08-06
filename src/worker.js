@@ -15,13 +15,17 @@
 
 /* =================  ۱) ثابت‌ها  ================= */
 
-const VERSION = "2.0.0";
+const VERSION = "2.1.0";
 const SESSION_COOKIE = "aod_session";
 const SESSION_TTL = 60 * 60 * 12;
 const QURAN_API = "https://api.alquran.cloud/v1";
 const TOTAL_AYAT = 6236;
 const MASK = "\u2022\u2022\u2022\u2022";
 const NL = "\n";
+
+/* لینک مرجع: پایگاه «قرآن نور» — book=88 یعنی «ترجمه برگرفته از تفسیر نور (قرائتی)» */
+const DEFAULT_LINK_BASE = "https://quran.inoor.ir/fa/ayah";
+const DEFAULT_LINK_BOOK = "88";
 
 const AYAH_COUNTS = [
   7, 286, 200, 176, 120, 165, 206, 75, 129, 109, 123, 111, 43, 52, 99, 128,
@@ -131,6 +135,8 @@ const DEFAULT_SETTINGS = {
   include_arabic: "1",
   include_translation: "1",
   include_link: "1",
+  link_base: DEFAULT_LINK_BASE,
+  link_book: DEFAULT_LINK_BOOK,
   hashtags: "#قرآن #آیه_روز",
   footer: "",
   admin_password_hash: ""
@@ -315,6 +321,17 @@ function jalaliLabel(t) {
   return faNum(j[2]) + " " + JALALI_MONTHS[j[1] - 1] + " " + faNum(j[0]);
 }
 
+/**
+ * لینک مرجع آیه در پایگاه «قرآن نور».
+ * نمونه: https://quran.inoor.ir/fa/ayah/80/17/translate?book=88
+ */
+function verseLink(v, s) {
+  const base = trimSlash((s && s.link_base) || DEFAULT_LINK_BASE);
+  const book = String((s && s.link_book) || DEFAULT_LINK_BOOK).trim();
+  const path = base + "/" + v.surah + "/" + v.ayah + "/translate";
+  return book ? path + "?book=" + encodeURIComponent(book) : path;
+}
+
 /* =================  ۳) لایهٔ D1  ================= */
 
 const SCHEMA = [
@@ -484,7 +501,7 @@ function buildMessage(v, s, t) {
   }
   if (s.include_link === "1") {
     out.push("");
-    out.push("\uD83D\uDD17 https://quran.com/" + v.surah + "/" + v.ayah);
+    out.push("\uD83D\uDD17 " + verseLink(v, s));
   }
   if (s.hashtags) { out.push(""); out.push(s.hashtags); }
   if (s.footer) out.push(s.footer);
@@ -858,7 +875,7 @@ async function handleAPI(request, env, url) {
       arabic: built.verse.arabic,
       translation: built.verse.translation,
       translator: built.settings.translation_label,
-      link: "https://quran.com/" + built.verse.surah + "/" + built.verse.ayah
+      link: verseLink(built.verse, built.settings)
     }, 200, { "cache-control": "public, max-age=600" });
   }
 
@@ -995,6 +1012,7 @@ async function handleAPI(request, env, url) {
       ref: built.verse.ref,
       surahName: built.verse.surahName,
       ayah: built.verse.ayah,
+      link: verseLink(built.verse, built.settings),
       message: built.message,
       tweets: splitTweets(built.message)
     });

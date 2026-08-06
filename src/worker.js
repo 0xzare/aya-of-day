@@ -1,25 +1,28 @@
 /**
  * آیهٔ روز | Aya of the Day — v2
- * ---------------------------------------------------------------
+ * ------------------------------------------------------------------
  * ارسال روزانهٔ یک آیهٔ منتخب از قرآن کریم با ترجمهٔ آیت‌الله قرائتی
  * به تلگرام، بله، ایتا، روبیکا و X (توییتر).
  *
  *   scheduled()  → Cron Trigger هر ۵ دقیقه؛ ارسال در ساعت تنظیم‌شده (وقت تهران)
- *   fetch()      → داشبورد مدیریتی و API
+ *   fetch()      → داشبورد مدیریتی + API
+ *
+ * نکتهٔ سبک: در این فایل عمداً از template literal استفاده نشده تا بتوان متن آن را
+ * بدون تغییر در ابزارهای دیپلوی خودکار جاسازی کرد.
  *
  * © Ali Zare Shahi — GPL-3.0
  */
 
-/* ══════════════════  ۱) ثابت‌ها  ══════════════════ */
+/* =================  ۱) ثابت‌ها  ================= */
 
 const VERSION = "2.0.0";
 const SESSION_COOKIE = "aod_session";
-const SESSION_TTL = 60 * 60 * 12; // ۱۲ ساعت
+const SESSION_TTL = 60 * 60 * 12;
 const QURAN_API = "https://api.alquran.cloud/v1";
 const TOTAL_AYAT = 6236;
 const MASK = "\u2022\u2022\u2022\u2022";
+const NL = "\n";
 
-/** تعداد آیات هر سوره (۱..۱۱۴) */
 const AYAH_COUNTS = [
   7, 286, 200, 176, 120, 165, 206, 75, 129, 109, 123, 111, 43, 52, 99, 128,
   111, 110, 98, 135, 112, 78, 118, 64, 77, 227, 93, 88, 69, 60, 34, 30, 73,
@@ -27,15 +30,14 @@ const AYAH_COUNTS = [
   49, 62, 55, 78, 96, 29, 22, 24, 13, 14, 11, 11, 18, 12, 12, 30, 52, 52,
   44, 28, 28, 20, 56, 40, 31, 50, 40, 46, 42, 29, 19, 36, 25, 22, 17, 19,
   26, 30, 20, 15, 21, 11, 8, 8, 19, 5, 8, 8, 11, 11, 8, 3, 9, 5, 4, 7, 3,
-  6, 3, 5, 4, 5, 6,
+  6, 3, 5, 4, 5, 6
 ];
 
 const JALALI_MONTHS = [
   "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-  "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند",
+  "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
 ];
 
-/** فهرست آیات منتخب — حالت پیش‌فرض */
 const CURATED_REFS = (
   "1:1 1:2 1:5 1:6 2:2 2:45 2:110 2:152 2:153 2:155 2:156 2:157 2:177 2:186 " +
   "2:195 2:216 2:255 2:256 2:261 2:263 2:267 2:277 2:286 3:8 3:26 3:31 3:92 " +
@@ -56,19 +58,18 @@ const CURATED_REFS = (
   "93:9 93:10 93:11 94:5 94:6 95:4 96:1 96:2 96:3 96:4 96:5 99:7 99:8 " +
   "102:1 103:1 103:2 103:3 107:4 107:5 107:6 107:7 109:6 112:1 112:2 " +
   "112:3 112:4"
-).split(" ").filter(Boolean);
+).split(" ");
 
-/** تعریف کانال‌ها — داشبورد فرم‌ها را از روی همین می‌سازد */
 const CHANNEL_DEFS = {
   telegram: {
     label: "تلگرام",
     icon: "\u2708\uFE0F",
-    hint: "توکن از @BotFather. ربات باید ادمین کانال باشد.",
+    hint: "توکن را از @BotFather بگیرید و ربات را ادمین کانال کنید.",
     fields: [
       { key: "bot_token", label: "توکن ربات", secret: true, required: true },
       { key: "chat_id", label: "شناسهٔ کانال", required: true, placeholder: "@mychannel یا -100..." },
-      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://api.telegram.org" },
-    ],
+      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://api.telegram.org" }
+    ]
   },
   bale: {
     label: "بله",
@@ -76,9 +77,9 @@ const CHANNEL_DEFS = {
     hint: "بازوی بله را از @botfather در ble.ir بسازید.",
     fields: [
       { key: "bot_token", label: "توکن بازو", secret: true, required: true },
-      { key: "chat_id", label: "شناسهٔ کانال", required: true, placeholder: "@mychannel یا شناسهٔ عددی" },
-      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://tapi.bale.ai" },
-    ],
+      { key: "chat_id", label: "شناسهٔ کانال", required: true, placeholder: "@mychannel" },
+      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://tapi.bale.ai" }
+    ]
   },
   eitaa: {
     label: "ایتا",
@@ -88,8 +89,8 @@ const CHANNEL_DEFS = {
       { key: "token", label: "توکن ایتایار", secret: true, required: true },
       { key: "chat_id", label: "شناسهٔ کانال", required: true, placeholder: "mychannel (بدون @)" },
       { key: "title", label: "عنوان پیام (اختیاری)" },
-      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://eitaayar.ir/api" },
-    ],
+      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://eitaayar.ir/api" }
+    ]
   },
   rubika: {
     label: "روبیکا",
@@ -97,9 +98,9 @@ const CHANNEL_DEFS = {
     hint: "ربات را با BotFather روبیکا بسازید (rubika.ir/botapi).",
     fields: [
       { key: "bot_token", label: "توکن ربات", secret: true, required: true },
-      { key: "chat_id", label: "شناسهٔ چت/کانال", required: true },
-      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://botapi.rubika.ir/v3" },
-    ],
+      { key: "chat_id", label: "شناسهٔ چت یا کانال", required: true },
+      { key: "base_url", label: "آدرس API (اختیاری)", placeholder: "https://botapi.rubika.ir/v3" }
+    ]
   },
   twitter: {
     label: "توییتر (X)",
@@ -109,9 +110,9 @@ const CHANNEL_DEFS = {
       { key: "api_key", label: "API Key", secret: true, required: true },
       { key: "api_secret", label: "API Secret", secret: true, required: true },
       { key: "access_token", label: "Access Token", secret: true, required: true },
-      { key: "access_secret", label: "Access Token Secret", secret: true, required: true },
-    ],
-  },
+      { key: "access_secret", label: "Access Token Secret", secret: true, required: true }
+    ]
+  }
 };
 
 const CHANNEL_IDS = Object.keys(CHANNEL_DEFS);
@@ -119,9 +120,9 @@ const CHANNEL_IDS = Object.keys(CHANNEL_DEFS);
 const DEFAULT_SETTINGS = {
   enabled: "1",
   send_time: "20:00",
-  tz_offset: "210",           // Asia/Tehran = UTC+03:30 (بدون DST)
+  tz_offset: "210",
   window_minutes: "30",
-  selection_mode: "curated",  // curated | random | sequential | custom
+  selection_mode: "curated",
   sequential_cursor: "1",
   custom_list: "",
   arabic_edition: "quran-uthmani",
@@ -132,27 +133,24 @@ const DEFAULT_SETTINGS = {
   include_link: "1",
   hashtags: "#قرآن #آیه_روز",
   footer: "",
-  admin_password_hash: "",
+  admin_password_hash: ""
 };
 
-const PUBLIC_SETTING_KEYS = Object.keys(DEFAULT_SETTINGS).filter(
-  (k) => k !== "admin_password_hash"
-);
+const PUBLIC_SETTING_KEYS = Object.keys(DEFAULT_SETTINGS).filter(function (k) {
+  return k !== "admin_password_hash";
+});
 
-/* ════════════════  ۲) کمک‌ابزارهای پایه  ════════════════ */
+/* =================  ۲) کمک‌ابزارها  ================= */
 
 const ENC = new TextEncoder();
 const DEC = new TextDecoder();
 
-function json(data, status = 200, headers = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      ...headers,
-    },
-  });
+function json(data, status, headers) {
+  const h = Object.assign({
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store"
+  }, headers || {});
+  return new Response(JSON.stringify(data), { status: status || 200, headers: h });
 }
 
 function b64(bytes) {
@@ -179,34 +177,34 @@ function eqStr(a, b) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
 
-/* ── رمزنگاری ── */
-
-async function hmacBytes(secret, msg, hash = "SHA-256") {
+async function hmacBytes(secret, msg, hash) {
   const key = await crypto.subtle.importKey(
-    "raw", ENC.encode(secret), { name: "HMAC", hash }, false, ["sign"]
+    "raw", ENC.encode(secret), { name: "HMAC", hash: hash || "SHA-256" }, false, ["sign"]
   );
   return new Uint8Array(await crypto.subtle.sign("HMAC", key, ENC.encode(msg)));
 }
 
 async function pbkdf2(password, saltB64, iterations) {
-  const key = await crypto.subtle.importKey(
-    "raw", ENC.encode(password), "PBKDF2", false, ["deriveBits"]
-  );
+  const key = await crypto.subtle.importKey("raw", ENC.encode(password), "PBKDF2", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits(
-    { name: "PBKDF2", salt: unb64(saltB64), iterations, hash: "SHA-256" }, key, 256
+    { name: "PBKDF2", salt: unb64(saltB64), iterations: iterations, hash: "SHA-256" }, key, 256
   );
   return b64(bits);
 }
 async function hashPassword(password) {
   const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
-  return "pbkdf2$100000$" + salt + "$" + (await pbkdf2(password, salt, 100000));
+  const digest = await pbkdf2(password, salt, 100000);
+  return "pbkdf2$100000$" + salt + "$" + digest;
 }
 async function verifyPassword(password, stored) {
   if (!stored || stored.indexOf("pbkdf2$") !== 0) return false;
-  const parts = stored.split("$");
-  const test = await pbkdf2(password, parts[2], Number(parts[1]) || 100000);
-  return eqStr(test, parts[3]);
+  const p = stored.split("$");
+  const test = await pbkdf2(password, p[2], Number(p[1]) || 100000);
+  return eqStr(test, p[3]);
 }
 
 async function aesKey(env) {
@@ -217,7 +215,7 @@ async function aesKey(env) {
 async function encryptJSON(env, obj) {
   const key = await aesKey(env);
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, ENC.encode(JSON.stringify(obj)));
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, ENC.encode(JSON.stringify(obj)));
   return "v1." + b64u(iv) + "." + b64u(new Uint8Array(ct));
 }
 async function decryptJSON(env, blob) {
@@ -235,22 +233,19 @@ async function decryptJSON(env, blob) {
   }
 }
 
-/* ── نشست ── */
-
 async function makeSession(env) {
-  const payload = b64u(ENC.encode(JSON.stringify({
-    v: 1, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + SESSION_TTL,
-  })));
+  const now = Math.floor(Date.now() / 1000);
+  const payload = b64u(ENC.encode(JSON.stringify({ v: 1, iat: now, exp: now + SESSION_TTL })));
   const sig = b64u(await hmacBytes(env.SESSION_SECRET || "dev-secret", payload));
   return payload + "." + sig;
 }
 async function readSession(env, token) {
   if (!token || token.indexOf(".") < 0) return null;
-  const [payload, sig] = token.split(".");
-  const expect = b64u(await hmacBytes(env.SESSION_SECRET || "dev-secret", payload));
-  if (!eqStr(sig, expect)) return null;
+  const parts = token.split(".");
+  const expect = b64u(await hmacBytes(env.SESSION_SECRET || "dev-secret", parts[0]));
+  if (!eqStr(parts[1], expect)) return null;
   try {
-    const data = JSON.parse(DEC.decode(unb64u(payload)));
+    const data = JSON.parse(DEC.decode(unb64u(parts[0])));
     if (!data.exp || data.exp < Math.floor(Date.now() / 1000)) return null;
     return data;
   } catch (e) {
@@ -259,10 +254,13 @@ async function readSession(env, token) {
 }
 function readCookie(request, name) {
   const raw = request.headers.get("cookie") || "";
-  for (const part of raw.split(";")) {
-    const idx = part.indexOf("=");
+  const parts = raw.split(";");
+  for (let i = 0; i < parts.length; i++) {
+    const idx = parts[i].indexOf("=");
     if (idx < 0) continue;
-    if (part.slice(0, idx).trim() === name) return decodeURIComponent(part.slice(idx + 1).trim());
+    if (parts[i].slice(0, idx).trim() === name) {
+      return decodeURIComponent(parts[i].slice(idx + 1).trim());
+    }
   }
   return null;
 }
@@ -271,24 +269,22 @@ function sessionCookie(value, maxAge) {
     "; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=" + maxAge;
 }
 
-/* ── تاریخ و زمان ── */
-
-function pad2(n) { return String(n).padStart(2, "0"); }
-
 function localNow(offsetMin, at) {
   const off = Number(offsetMin) || 210;
   const d = new Date((at || Date.now()) + off * 60000);
-  const y = d.getUTCFullYear(), m = d.getUTCMonth() + 1, day = d.getUTCDate();
-  const hh = d.getUTCHours(), mm = d.getUTCMinutes();
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth() + 1;
+  const day = d.getUTCDate();
+  const hh = d.getUTCHours();
+  const mm = d.getUTCMinutes();
   return {
-    y, m, d: day, hh, mm,
+    y: y, m: m, d: day, hh: hh, mm: mm,
     minutes: hh * 60 + mm,
     dayKey: y + "-" + pad2(m) + "-" + pad2(day),
-    clock: pad2(hh) + ":" + pad2(mm),
+    clock: pad2(hh) + ":" + pad2(mm)
   };
 }
 
-/** میلادی ← شمسی (الگوریتم jalaali-js) */
 function toJalali(gy, gm, gd) {
   const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
   let jy = gy <= 1600 ? 0 : 979;
@@ -310,14 +306,16 @@ function toJalali(gy, gm, gd) {
 }
 
 function faNum(x) {
-  return String(x).replace(/[0-9]/g, (d) => "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9"[Number(d)]);
+  return String(x).replace(/[0-9]/g, function (d) {
+    return "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9"[Number(d)];
+  });
 }
 function jalaliLabel(t) {
   const j = toJalali(t.y, t.m, t.d);
   return faNum(j[2]) + " " + JALALI_MONTHS[j[1] - 1] + " " + faNum(j[0]);
 }
 
-/* ════════════════  ۳) لایهٔ دیتا (D1)  ════════════════ */
+/* =================  ۳) لایهٔ D1  ================= */
 
 const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')))",
@@ -328,20 +326,21 @@ const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS deliveries (id INTEGER PRIMARY KEY AUTOINCREMENT, send_id INTEGER NOT NULL, channel TEXT NOT NULL, ok INTEGER NOT NULL, detail TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))",
   "CREATE INDEX IF NOT EXISTS idx_deliveries_send ON deliveries (send_id)",
   "CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY AUTOINCREMENT, level TEXT NOT NULL, message TEXT NOT NULL, meta TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')))",
-  "CREATE INDEX IF NOT EXISTS idx_logs_created ON logs (created_at DESC)",
+  "CREATE INDEX IF NOT EXISTS idx_logs_created ON logs (created_at DESC)"
 ];
 
 let schemaReady = false;
 async function ensureSchema(env) {
   if (schemaReady) return;
-  await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
+  await env.DB.batch(SCHEMA.map(function (s) { return env.DB.prepare(s); }));
   schemaReady = true;
 }
 
 async function getSettings(env) {
-  const rows = (await env.DB.prepare("SELECT key, value FROM settings").all()).results || [];
+  const res = await env.DB.prepare("SELECT key, value FROM settings").all();
+  const rows = res.results || [];
   const s = Object.assign({}, DEFAULT_SETTINGS);
-  for (const r of rows) s[r.key] = r.value;
+  for (let i = 0; i < rows.length; i++) s[rows[i].key] = rows[i].value;
   return s;
 }
 async function setSetting(env, key, value) {
@@ -352,10 +351,14 @@ async function setSetting(env, key, value) {
 }
 
 async function getChannels(env) {
-  const rows = (await env.DB.prepare("SELECT id, enabled, config FROM channels").all()).results || [];
+  const res = await env.DB.prepare("SELECT id, enabled, config FROM channels").all();
+  const rows = res.results || [];
   const map = {};
-  for (const id of CHANNEL_IDS) map[id] = { id, enabled: false, config: {} };
-  for (const r of rows) {
+  for (let i = 0; i < CHANNEL_IDS.length; i++) {
+    map[CHANNEL_IDS[i]] = { id: CHANNEL_IDS[i], enabled: false, config: {} };
+  }
+  for (let j = 0; j < rows.length; j++) {
+    const r = rows[j];
     if (!map[r.id]) continue;
     map[r.id].enabled = Number(r.enabled) === 1;
     map[r.id].config = await decryptJSON(env, r.config);
@@ -378,12 +381,14 @@ async function log(env, level, message, meta) {
   } catch (e) { /* لاگ نباید مسیر اصلی را بشکند */ }
 }
 
-/* ════════════════  ۴) انتخاب و دریافت آیه  ════════════════ */
+/* =================  ۴) انتخاب و دریافت آیه  ================= */
 
 function validRef(ref) {
   const p = String(ref).split(":");
-  const s = Number(p[0]), a = Number(p[1]);
-  return Number.isInteger(s) && Number.isInteger(a) && s >= 1 && s <= 114 && a >= 1 && a <= AYAH_COUNTS[s - 1];
+  const s = Number(p[0]);
+  const a = Number(p[1]);
+  return Number.isInteger(s) && Number.isInteger(a) &&
+    s >= 1 && s <= 114 && a >= 1 && a <= AYAH_COUNTS[s - 1];
 }
 function numberToRef(n) {
   let rem = ((Number(n) - 1) % TOTAL_AYAT + TOTAL_AYAT) % TOTAL_AYAT + 1;
@@ -414,7 +419,7 @@ function pickRef(settings, dayKey) {
     return numberToRef(Number(settings.sequential_cursor) || 1);
   }
   if (mode === "custom") {
-    const list = String(settings.custom_list || "").split(/[\s,\u060C\n]+/).filter(validRef);
+    const list = String(settings.custom_list || "").split(/[\s,\u060C]+/).filter(validRef);
     if (list.length) return list[Math.abs(dayIndex(dayKey)) % list.length];
   }
   const curated = CURATED_REFS.filter(validRef);
@@ -422,17 +427,15 @@ function pickRef(settings, dayKey) {
 }
 
 async function fetchAyah(ref, settings) {
-  const editions = [
-    settings.arabic_edition || "quran-uthmani",
-    settings.translation_edition || "fa.gharaati",
-  ].join(",");
+  const editions = (settings.arabic_edition || "quran-uthmani") + "," +
+    (settings.translation_edition || "fa.gharaati");
   const url = QURAN_API + "/ayah/" + encodeURIComponent(ref) + "/editions/" + editions;
   let lastError = "unknown";
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(url, {
         headers: { accept: "application/json" },
-        cf: { cacheTtl: 21600, cacheEverything: true },
+        cf: { cacheTtl: 21600, cacheEverything: true }
       });
       if (!res.ok) { lastError = "HTTP " + res.status; continue; }
       const body = await res.json();
@@ -440,10 +443,16 @@ async function fetchAyah(ref, settings) {
         lastError = "پاسخ نامعتبر از API";
         continue;
       }
-      const ar = body.data.find((d) => d.edition && d.edition.type === "quran") || body.data[0];
-      const tr = body.data.find((d) => d.edition && d.edition.type === "translation");
+      let ar = null;
+      let tr = null;
+      for (let i = 0; i < body.data.length; i++) {
+        const item = body.data[i];
+        if (item.edition && item.edition.type === "quran" && !ar) ar = item;
+        if (item.edition && item.edition.type === "translation" && !tr) tr = item;
+      }
+      if (!ar) ar = body.data[0];
       return {
-        ref,
+        ref: ref,
         surah: ar.surah.number,
         ayah: ar.numberInSurah,
         surahName: ar.surah.name,
@@ -453,7 +462,7 @@ async function fetchAyah(ref, settings) {
         page: ar.page,
         arabic: ar.text,
         translation: tr ? tr.text : "",
-        translationEdition: tr ? tr.edition.identifier : "",
+        translationEdition: tr ? tr.edition.identifier : ""
       };
     } catch (e) {
       lastError = String((e && e.message) || e);
@@ -464,50 +473,56 @@ async function fetchAyah(ref, settings) {
 
 function buildMessage(v, s, t) {
   const out = [];
-  out.push("\uD83C\uDF3F آیهٔ روز — " + jalaliLabel(t));
-  if (s.include_arabic === "1" && v.arabic) out.push("", v.arabic);
-  out.push("", "\uD83D\uDCD6 " + v.surahName + " — آیهٔ " + faNum(v.ayah));
+  out.push("\u2618 آیهٔ روز \u2014 " + jalaliLabel(t));
+  if (s.include_arabic === "1" && v.arabic) { out.push(""); out.push(v.arabic); }
+  out.push("");
+  out.push("\uD83D\uDCD6 " + v.surahName + " \u2014 آیهٔ " + faNum(v.ayah));
   if (s.include_translation === "1" && v.translation) {
-    out.push("", "\u270D\uFE0F ترجمهٔ " + (s.translation_label || "") + ":", v.translation);
+    out.push("");
+    out.push("\u270D\uFE0F ترجمهٔ " + (s.translation_label || "") + ":");
+    out.push(v.translation);
   }
   if (s.include_link === "1") {
-    out.push("", "\uD83D\uDD17 https://quran.com/" + v.surah + "/" + v.ayah);
+    out.push("");
+    out.push("\uD83D\uDD17 https://quran.com/" + v.surah + "/" + v.ayah);
   }
-  if (s.hashtags) out.push("", s.hashtags);
+  if (s.hashtags) { out.push(""); out.push(s.hashtags); }
   if (s.footer) out.push(s.footer);
-  return out.join("\n").trim();
+  return out.join(NL).trim();
 }
 
-/* ════════════════  ۵) ارسال به کانال‌ها  ════════════════ */
+/* =================  ۵) ارسال به کانال‌ها  ================= */
 
 async function readBody(res) {
   const text = await res.text();
   try { return JSON.parse(text); } catch (e) { return { raw: text.slice(0, 300) }; }
 }
-function fail(status, data) {
+function failure(status, data) {
   return { ok: false, detail: "HTTP " + status + " \u00B7 " + JSON.stringify(data).slice(0, 350) };
 }
-function missing(cfg, keys) {
-  const gone = keys.filter((k) => !cfg[k]);
-  return gone.length ? "مقادیر لازم تنظیم نشده: " + gone.join("، ") : null;
+function missingFields(cfg, keys) {
+  const gone = keys.filter(function (k) { return !cfg[k]; });
+  return gone.length ? "مقادیر لازم تنظیم نشده: " + gone.join(", ") : null;
+}
+function trimSlash(u) {
+  return String(u).replace(/\/+$/, "");
 }
 
-/** تلگرام و بله از یک API مشترک پیروی می‌کنند */
 async function sendTelegramLike(base, token, chatId, text) {
-  const res = await fetch(base.replace(/\/+$/, "") + "/bot" + token + "/sendMessage", {
+  const res = await fetch(trimSlash(base) + "/bot" + token + "/sendMessage", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
+    body: JSON.stringify({ chat_id: chatId, text: text, disable_web_page_preview: true })
   });
   const data = await readBody(res);
   if (data && data.ok) {
     return { ok: true, detail: "message_id=" + ((data.result && data.result.message_id) || "?") };
   }
-  return fail(res.status, data);
+  return failure(res.status, data);
 }
 
 async function sendEitaa(cfg, text) {
-  const base = (cfg.base_url || "https://eitaayar.ir/api").replace(/\/+$/, "");
+  const base = trimSlash(cfg.base_url || "https://eitaayar.ir/api");
   const form = new URLSearchParams();
   form.set("chat_id", cfg.chat_id);
   form.set("text", text);
@@ -515,34 +530,32 @@ async function sendEitaa(cfg, text) {
   const res = await fetch(base + "/" + cfg.token + "/sendMessage", {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: form.toString(),
+    body: form.toString()
   });
   const data = await readBody(res);
   if (data && (data.ok === true || data.ok === "true")) return { ok: true, detail: "ok" };
-  return fail(res.status, data);
+  return failure(res.status, data);
 }
 
 async function sendRubika(cfg, text) {
-  const base = (cfg.base_url || "https://botapi.rubika.ir/v3").replace(/\/+$/, "");
+  const base = trimSlash(cfg.base_url || "https://botapi.rubika.ir/v3");
   const res = await fetch(base + "/" + cfg.bot_token + "/sendMessage", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ chat_id: cfg.chat_id, text }),
+    body: JSON.stringify({ chat_id: cfg.chat_id, text: text })
   });
   const data = await readBody(res);
-  const status = data && (data.status || data.Status);
-  if (String(status).toUpperCase() === "OK") {
+  const st = data && (data.status || data.Status);
+  if (String(st).toUpperCase() === "OK") {
     return { ok: true, detail: JSON.stringify(data.data || {}).slice(0, 150) };
   }
-  return fail(res.status, data);
+  return failure(res.status, data);
 }
 
-/* ── X (توییتر): OAuth 1.0a با Web Crypto ── */
-
 function pct(str) {
-  return encodeURIComponent(String(str)).replace(
-    /[!'()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase()
-  );
+  return encodeURIComponent(String(str)).replace(/[!'()*]/g, function (c) {
+    return "%" + c.charCodeAt(0).toString(16).toUpperCase();
+  });
 }
 async function oauth1Header(method, url, cfg) {
   const params = {
@@ -551,15 +564,17 @@ async function oauth1Header(method, url, cfg) {
     oauth_signature_method: "HMAC-SHA1",
     oauth_timestamp: String(Math.floor(Date.now() / 1000)),
     oauth_token: cfg.access_token,
-    oauth_version: "1.0",
+    oauth_version: "1.0"
   };
-  const normalized = Object.keys(params).sort()
-    .map((k) => pct(k) + "=" + pct(params[k])).join("&");
+  const normalized = Object.keys(params).sort().map(function (k) {
+    return pct(k) + "=" + pct(params[k]);
+  }).join("&");
   const baseString = method.toUpperCase() + "&" + pct(url) + "&" + pct(normalized);
   const signingKey = pct(cfg.api_secret) + "&" + pct(cfg.access_secret);
   params.oauth_signature = b64(await hmacBytes(signingKey, baseString, "SHA-1"));
-  return "OAuth " + Object.keys(params).sort()
-    .map((k) => pct(k) + '="' + pct(params[k]) + '"').join(", ");
+  return "OAuth " + Object.keys(params).sort().map(function (k) {
+    return pct(k) + '="' + pct(params[k]) + '"';
+  }).join(", ");
 }
 
 function splitTweets(text, limit) {
@@ -569,7 +584,8 @@ function splitTweets(text, limit) {
   const tokens = clean.split(/(\s+)/);
   const chunks = [];
   let cur = "";
-  for (let token of tokens) {
+  for (let i = 0; i < tokens.length; i++) {
+    let token = tokens[i];
     while (Array.from(token).length > cap) {
       if (cur.trim()) { chunks.push(cur.trim()); cur = ""; }
       const arr = Array.from(token);
@@ -584,8 +600,9 @@ function splitTweets(text, limit) {
     }
   }
   if (cur.trim()) chunks.push(cur.trim());
-  const total = chunks.length;
-  return chunks.map((c, i) => c + "\n(" + (i + 1) + "/" + total + ")");
+  return chunks.map(function (c, i) {
+    return c + NL + "(" + (i + 1) + "/" + chunks.length + ")";
+  });
 }
 
 async function sendTwitter(cfg, text) {
@@ -600,16 +617,16 @@ async function sendTwitter(cfg, text) {
       method: "POST",
       headers: {
         authorization: await oauth1Header("POST", url, cfg),
-        "content-type": "application/json",
+        "content-type": "application/json"
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
     const data = await readBody(res);
     if (!res.ok || !data.data || !data.data.id) {
       return {
         ok: false,
         detail: "بخش " + (i + 1) + "/" + parts.length + " \u00B7 HTTP " + res.status +
-          " \u00B7 " + JSON.stringify(data).slice(0, 300),
+          " \u00B7 " + JSON.stringify(data).slice(0, 300)
       };
     }
     replyTo = data.data.id;
@@ -620,40 +637,41 @@ async function sendTwitter(cfg, text) {
 
 async function sendToChannel(id, cfg, message) {
   let gone;
-  switch (id) {
-    case "telegram":
-      gone = missing(cfg, ["bot_token", "chat_id"]);
-      if (gone) return { ok: false, detail: gone };
-      return sendTelegramLike(cfg.base_url || "https://api.telegram.org", cfg.bot_token, cfg.chat_id, message);
-    case "bale":
-      gone = missing(cfg, ["bot_token", "chat_id"]);
-      if (gone) return { ok: false, detail: gone };
-      return sendTelegramLike(cfg.base_url || "https://tapi.bale.ai", cfg.bot_token, cfg.chat_id, message);
-    case "eitaa":
-      gone = missing(cfg, ["token", "chat_id"]);
-      if (gone) return { ok: false, detail: gone };
-      return sendEitaa(cfg, message);
-    case "rubika":
-      gone = missing(cfg, ["bot_token", "chat_id"]);
-      if (gone) return { ok: false, detail: gone };
-      return sendRubika(cfg, message);
-    case "twitter":
-      gone = missing(cfg, ["api_key", "api_secret", "access_token", "access_secret"]);
-      if (gone) return { ok: false, detail: gone };
-      return sendTwitter(cfg, message);
-    default:
-      return { ok: false, detail: "کانال ناشناخته" };
+  if (id === "telegram") {
+    gone = missingFields(cfg, ["bot_token", "chat_id"]);
+    if (gone) return { ok: false, detail: gone };
+    return sendTelegramLike(cfg.base_url || "https://api.telegram.org", cfg.bot_token, cfg.chat_id, message);
   }
+  if (id === "bale") {
+    gone = missingFields(cfg, ["bot_token", "chat_id"]);
+    if (gone) return { ok: false, detail: gone };
+    return sendTelegramLike(cfg.base_url || "https://tapi.bale.ai", cfg.bot_token, cfg.chat_id, message);
+  }
+  if (id === "eitaa") {
+    gone = missingFields(cfg, ["token", "chat_id"]);
+    if (gone) return { ok: false, detail: gone };
+    return sendEitaa(cfg, message);
+  }
+  if (id === "rubika") {
+    gone = missingFields(cfg, ["bot_token", "chat_id"]);
+    if (gone) return { ok: false, detail: gone };
+    return sendRubika(cfg, message);
+  }
+  if (id === "twitter") {
+    gone = missingFields(cfg, ["api_key", "api_secret", "access_token", "access_secret"]);
+    if (gone) return { ok: false, detail: gone };
+    return sendTwitter(cfg, message);
+  }
+  return { ok: false, detail: "کانال ناشناخته" };
 }
 
-/* ════════════════  ۶) هستهٔ ارسال  ════════════════ */
+/* =================  ۶) هستهٔ ارسال  ================= */
 
 async function buildToday(env, settings) {
   const s = settings || (await getSettings(env));
   const t = localNow(s.tz_offset);
-  const ref = pickRef(s, t.dayKey);
-  const verse = await fetchAyah(ref, s);
-  return { settings: s, now: t, verse, message: buildMessage(verse, s, t) };
+  const verse = await fetchAyah(pickRef(s, t.dayKey), s);
+  return { settings: s, now: t, verse: verse, message: buildMessage(verse, s, t) };
 }
 
 async function dispatch(env, options) {
@@ -662,26 +680,36 @@ async function dispatch(env, options) {
   const only = opts.only || null;
 
   const built = await buildToday(env);
-  const s = built.settings, t = built.now, verse = built.verse, message = built.message;
+  const s = built.settings;
+  const t = built.now;
+  const verse = built.verse;
+  const message = built.message;
 
   const channels = await getChannels(env);
-  const targets = only ? [only] : CHANNEL_IDS.filter((id) => channels[id] && channels[id].enabled);
+  const targets = only ? [only] : CHANNEL_IDS.filter(function (id) {
+    return channels[id] && channels[id].enabled;
+  });
 
   if (!targets.length) {
-    await log(env, "warn", "هیچ کانال فعالی وجود ندارد", { trigger });
-    return { status: "failed", ref: verse.ref, verse, message, results: [], error: "هیچ کانال فعالی وجود ندارد" };
+    await log(env, "warn", "هیچ کانال فعالی وجود ندارد", { trigger: trigger });
+    return {
+      status: "failed", ref: verse.ref, verse: verse, message: message,
+      results: [], error: "هیچ کانال فعالی وجود ندارد"
+    };
   }
 
-  const settled = await Promise.all(targets.map(async (id) => {
+  const settled = await Promise.all(targets.map(async function (id) {
     try {
-      const r = await sendToChannel(id, (channels[id] && channels[id].config) || {}, message);
+      const cfg = (channels[id] && channels[id].config) || {};
+      const r = await sendToChannel(id, cfg, message);
       return { channel: id, ok: !!r.ok, detail: r.detail || "" };
     } catch (e) {
       return { channel: id, ok: false, detail: String((e && e.message) || e) };
     }
   }));
 
-  const okCount = settled.filter((r) => r.ok).length;
+  let okCount = 0;
+  for (let i = 0; i < settled.length; i++) if (settled[i].ok) okCount++;
   const status = okCount === settled.length ? "ok" : okCount > 0 ? "partial" : "failed";
 
   const inserted = await env.DB.prepare(
@@ -694,24 +722,25 @@ async function dispatch(env, options) {
 
   const sendId = inserted.meta && inserted.meta.last_row_id;
   if (sendId) {
-    await env.DB.batch(settled.map((r) =>
-      env.DB.prepare("INSERT INTO deliveries (send_id, channel, ok, detail) VALUES (?, ?, ?, ?)")
-        .bind(sendId, r.channel, r.ok ? 1 : 0, String(r.detail || "").slice(0, 500))
-    ));
+    await env.DB.batch(settled.map(function (r) {
+      return env.DB
+        .prepare("INSERT INTO deliveries (send_id, channel, ok, detail) VALUES (?, ?, ?, ?)")
+        .bind(sendId, r.channel, r.ok ? 1 : 0, String(r.detail || "").slice(0, 500));
+    }));
   }
 
   await log(
     env,
     status === "ok" ? "info" : status === "partial" ? "warn" : "error",
-    "ارسال (" + trigger + ") — آیهٔ " + verse.ref,
-    { status, results: settled }
+    "ارسال (" + trigger + ") \u2014 آیهٔ " + verse.ref,
+    { status: status, results: settled }
   );
 
   if (s.selection_mode === "sequential" && trigger !== "test" && okCount > 0) {
     await setSetting(env, "sequential_cursor", ((Number(s.sequential_cursor) || 1) % TOTAL_AYAT) + 1);
   }
 
-  return { status, ref: verse.ref, verse, message, results: settled, sendId };
+  return { status: status, ref: verse.ref, verse: verse, message: message, results: settled, sendId: sendId };
 }
 
 async function runScheduled(env) {
@@ -729,12 +758,11 @@ async function runScheduled(env) {
   const lock = await env.DB
     .prepare("INSERT OR IGNORE INTO daily_locks (day_key) VALUES (?)")
     .bind(t.dayKey).run();
-  if (!lock.meta || lock.meta.changes === 0) return; // امروز قبلاً ارسال شده
+  if (!lock.meta || lock.meta.changes === 0) return;
 
   try {
     const result = await dispatch(env, { trigger: "cron" });
     if (result.status === "failed") {
-      // قفل را آزاد کن تا تیک بعدی دوباره تلاش کند
       await env.DB.prepare("DELETE FROM daily_locks WHERE day_key = ?").bind(t.dayKey).run();
     }
   } catch (e) {
@@ -742,12 +770,11 @@ async function runScheduled(env) {
     await log(env, "error", "خطا در اجرای کران", { error: String((e && e.message) || e) });
   }
 
-  // نگه‌داشت: قفل‌های قدیمی را پاک کن
   await env.DB.prepare("DELETE FROM daily_locks WHERE day_key < ?")
     .bind(localNow(s.tz_offset, Date.now() - 30 * 86400000).dayKey).run();
 }
 
-function nextRunISO(s) {
+function nextRunInfo(s) {
   const off = Number(s.tz_offset) || 210;
   const hm = String(s.send_time || "20:00").split(":");
   const target = (Number(hm[0]) || 0) * 60 + (Number(hm[1]) || 0);
@@ -756,15 +783,21 @@ function nextRunISO(s) {
   if (addMinutes <= 0) addMinutes += 1440;
   const at = Date.now() + addMinutes * 60000;
   const local = localNow(off, at);
-  return { iso: new Date(at).toISOString(), clock: local.clock, jalali: jalaliLabel(local), inMinutes: addMinutes };
+  return {
+    iso: new Date(at).toISOString(),
+    clock: local.clock,
+    jalali: jalaliLabel(local),
+    inMinutes: addMinutes
+  };
 }
 
-/* ════════════════  ۷) API  ════════════════ */
+/* =================  ۷) API  ================= */
 
 function maskConfig(id, cfg) {
-  const def = CHANNEL_DEFS[id];
+  const fields = CHANNEL_DEFS[id].fields;
   const out = {};
-  for (const f of def.fields) {
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
     const val = cfg[f.key];
     if (!val) { out[f.key] = ""; continue; }
     out[f.key] = f.secret ? MASK + String(val).slice(-4) : String(val);
@@ -772,14 +805,15 @@ function maskConfig(id, cfg) {
   return out;
 }
 function mergeConfig(id, oldCfg, incoming) {
-  const def = CHANNEL_DEFS[id];
+  const fields = CHANNEL_DEFS[id].fields;
   const out = Object.assign({}, oldCfg);
-  for (const f of def.fields) {
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i];
     if (!(f.key in incoming)) continue;
-    const val = incoming[f.key];
-    if (val === null) { delete out[f.key]; continue; }
-    const str = String(val);
-    if (f.secret && str.indexOf(MASK) === 0) continue; // تغییر نکرده
+    const raw = incoming[f.key];
+    if (raw === null) { delete out[f.key]; continue; }
+    const str = String(raw);
+    if (f.secret && str.indexOf(MASK) === 0) continue;
     if (str === "") { delete out[f.key]; continue; }
     out[f.key] = str.trim();
   }
@@ -797,20 +831,13 @@ async function adminPasswordHash(env) {
   return "";
 }
 
-async function requireAuth(request, env) {
-  const token = readCookie(request, SESSION_COOKIE);
-  const session = await readSession(env, token);
-  return !!session;
-}
-
 async function handleAPI(request, env, url) {
   const path = url.pathname;
   const method = request.method.toUpperCase();
-  const body = method === "POST" || method === "PUT"
-    ? await request.json().catch(() => ({}))
-    : {};
-
-  /* ── عمومی ── */
+  let body = {};
+  if (method === "POST" || method === "PUT") {
+    try { body = await request.json(); } catch (e) { body = {}; }
+  }
 
   if (path === "/health") {
     return json({ ok: true, service: "aya-of-day", version: VERSION, time: new Date().toISOString() });
@@ -822,18 +849,24 @@ async function handleAPI(request, env, url) {
       ok: true,
       date: { jalali: jalaliLabel(built.now), gregorian: built.now.dayKey },
       ref: built.verse.ref,
-      surah: { number: built.verse.surah, name: built.verse.surahName, english: built.verse.surahEnglish },
+      surah: {
+        number: built.verse.surah,
+        name: built.verse.surahName,
+        english: built.verse.surahEnglish
+      },
       ayah: built.verse.ayah,
       arabic: built.verse.arabic,
       translation: built.verse.translation,
       translator: built.settings.translation_label,
-      link: "https://quran.com/" + built.verse.surah + "/" + built.verse.ayah,
-    });
+      link: "https://quran.com/" + built.verse.surah + "/" + built.verse.ayah
+    }, 200, { "cache-control": "public, max-age=600" });
   }
 
   if (path === "/api/login" && method === "POST") {
     const stored = await adminPasswordHash(env);
-    if (!stored) return json({ error: "رمز مدیر تنظیم نشده است. متغیر ADMIN_PASSWORD را تنظیم کنید." }, 500);
+    if (!stored) {
+      return json({ error: "رمز مدیر تنظیم نشده است. متغیر ADMIN_PASSWORD را تنظیم کنید." }, 500);
+    }
     const ok = await verifyPassword(String(body.password || ""), stored);
     if (!ok) {
       await log(env, "warn", "تلاش ناموفق برای ورود", { ip: request.headers.get("cf-connecting-ip") });
@@ -847,11 +880,8 @@ async function handleAPI(request, env, url) {
     return json({ ok: true }, 200, { "set-cookie": sessionCookie("", 0) });
   }
 
-  /* ── نیازمند ورود ── */
-
-  if (!(await requireAuth(request, env))) {
-    return json({ error: "unauthorized" }, 401);
-  }
+  const session = await readSession(env, readCookie(request, SESSION_COOKIE));
+  if (!session) return json({ error: "unauthorized" }, 401);
 
   if (path === "/api/state" && method === "GET") {
     const s = await getSettings(env);
@@ -859,61 +889,76 @@ async function handleAPI(request, env, url) {
     const t = localNow(s.tz_offset);
 
     const publicSettings = {};
-    for (const k of PUBLIC_SETTING_KEYS) publicSettings[k] = s[k];
+    for (let i = 0; i < PUBLIC_SETTING_KEYS.length; i++) {
+      publicSettings[PUBLIC_SETTING_KEYS[i]] = s[PUBLIC_SETTING_KEYS[i]];
+    }
 
     const channelState = {};
-    for (const id of CHANNEL_IDS) {
-      const required = CHANNEL_DEFS[id].fields.filter((f) => f.required).map((f) => f.key);
+    for (let j = 0; j < CHANNEL_IDS.length; j++) {
+      const id = CHANNEL_IDS[j];
       const cfg = channels[id].config || {};
+      const required = CHANNEL_DEFS[id].fields.filter(function (f) { return f.required; });
       channelState[id] = {
         enabled: channels[id].enabled,
         config: maskConfig(id, cfg),
-        configured: required.every((k) => !!cfg[k]),
+        configured: required.every(function (f) { return !!cfg[f.key]; })
       };
     }
 
-    const history = (await env.DB.prepare(
-      "SELECT id, day_key, ref, surah_name, ayah, trigger, status, created_at FROM sends ORDER BY id DESC LIMIT 30"
-    ).all()).results || [];
-    const sendIds = history.map((h) => h.id);
+    const historyRes = await env.DB.prepare(
+      "SELECT id, day_key, ref, surah_name, ayah, trigger, status, created_at " +
+      "FROM sends ORDER BY id DESC LIMIT 30"
+    ).all();
+    const history = historyRes.results || [];
+
     let deliveries = [];
-    if (sendIds.length) {
-      deliveries = (await env.DB.prepare(
-        "SELECT send_id, channel, ok, detail FROM deliveries WHERE send_id IN (" +
-        sendIds.map(() => "?").join(",") + ")"
-      ).bind(...sendIds).all()).results || [];
+    if (history.length) {
+      const ids = history.map(function (h) { return h.id; });
+      const marks = ids.map(function () { return "?"; }).join(",");
+      const delRes = await env.DB.prepare(
+        "SELECT send_id, channel, ok, detail FROM deliveries WHERE send_id IN (" + marks + ")"
+      ).bind.apply(null, ids).all();
+      deliveries = delRes.results || [];
     }
-    const logs = (await env.DB.prepare(
+
+    const logsRes = await env.DB.prepare(
       "SELECT id, level, message, meta, created_at FROM logs ORDER BY id DESC LIMIT 60"
-    ).all()).results || [];
+    ).all();
+
+    const lockRow = await env.DB
+      .prepare("SELECT day_key FROM daily_locks WHERE day_key = ?").bind(t.dayKey).first();
 
     return json({
       ok: true,
       version: VERSION,
       now: { clock: t.clock, jalali: jalaliLabel(t), dayKey: t.dayKey },
-      nextRun: nextRunISO(s),
+      nextRun: nextRunInfo(s),
       settings: publicSettings,
       channelDefs: CHANNEL_DEFS,
       channels: channelState,
-      history,
-      deliveries,
-      logs,
-      sentToday: !!(await env.DB.prepare("SELECT day_key FROM daily_locks WHERE day_key = ?").bind(t.dayKey).first()),
+      history: history,
+      deliveries: deliveries,
+      logs: logsRes.results || [],
+      sentToday: !!lockRow
     });
   }
 
   if (path === "/api/settings" && method === "POST") {
     const incoming = body.settings || {};
     const writes = [];
-    for (const k of PUBLIC_SETTING_KEYS) {
+    for (let i = 0; i < PUBLIC_SETTING_KEYS.length; i++) {
+      const k = PUBLIC_SETTING_KEYS[i];
       if (!(k in incoming)) continue;
       let v = String(incoming[k] == null ? "" : incoming[k]);
-      if (k === "send_time" && !/^\d{1,2}:\d{2}$/.test(v)) {
-        return json({ error: "قالب ساعت ارسال باید HH:MM باشد" }, 400);
-      }
       if (k === "send_time") {
+        if (!/^\d{1,2}:\d{2}$/.test(v)) return json({ error: "قالب ساعت ارسال باید HH:MM باشد" }, 400);
         const p = v.split(":");
-        v = pad2(Math.min(23, Math.max(0, Number(p[0]) || 0))) + ":" + pad2(Math.min(59, Math.max(0, Number(p[1]) || 0)));
+        v = pad2(Math.min(23, Math.max(0, Number(p[0]) || 0))) + ":" +
+          pad2(Math.min(59, Math.max(0, Number(p[1]) || 0)));
+      }
+      if (k === "selection_mode" &&
+        ["curated", "random", "sequential", "custom"].indexOf(v) < 0) {
+        return json({ error: "روش انتخاب نامعتبر است" }, 400);
       }
       writes.push(setSetting(env, k, v));
     }
@@ -930,8 +975,8 @@ async function handleAPI(request, env, url) {
     const merged = mergeConfig(id, channels[id].config || {}, body.config || {});
     const enabled = body.enabled == null ? channels[id].enabled : !!body.enabled;
     await saveChannel(env, id, enabled, merged);
-    await log(env, "info", "تنظیمات کانال ذخیره شد: " + id, { enabled });
-    return json({ ok: true, config: maskConfig(id, merged), enabled });
+    await log(env, "info", "تنظیمات کانال ذخیره شد: " + id, { enabled: enabled });
+    return json({ ok: true, config: maskConfig(id, merged), enabled: enabled });
   }
 
   const testMatch = path.match(/^\/api\/test\/([a-z]+)$/);
@@ -939,7 +984,7 @@ async function handleAPI(request, env, url) {
     const id = testMatch[1];
     if (!CHANNEL_DEFS[id]) return json({ error: "کانال ناشناخته" }, 404);
     const result = await dispatch(env, { trigger: "test", only: id });
-    const r = result.results[0] || { ok: false, detail: "بدون نتیجه" };
+    const r = result.results[0] || { ok: false, detail: result.error || "بدون نتیجه" };
     return json({ ok: r.ok, detail: r.detail, ref: result.ref });
   }
 
@@ -951,17 +996,23 @@ async function handleAPI(request, env, url) {
       surahName: built.verse.surahName,
       ayah: built.verse.ayah,
       message: built.message,
-      tweets: splitTweets(built.message),
+      tweets: splitTweets(built.message)
     });
   }
 
   if (path === "/api/send-now" && method === "POST") {
     const result = await dispatch(env, { trigger: "manual" });
     if (body.markToday) {
-      const t = localNow((await getSettings(env)).tz_offset);
-      await env.DB.prepare("INSERT OR IGNORE INTO daily_locks (day_key) VALUES (?)").bind(t.dayKey).run();
+      const s = await getSettings(env);
+      await env.DB.prepare("INSERT OR IGNORE INTO daily_locks (day_key) VALUES (?)")
+        .bind(localNow(s.tz_offset).dayKey).run();
     }
-    return json({ ok: result.status !== "failed", status: result.status, ref: result.ref, results: result.results });
+    return json({
+      ok: result.status !== "failed",
+      status: result.status,
+      ref: result.ref,
+      results: result.results
+    });
   }
 
   if (path === "/api/password" && method === "POST") {
@@ -969,50 +1020,162 @@ async function handleAPI(request, env, url) {
     const next = String(body.next || "");
     if (next.length < 8) return json({ error: "رمز جدید باید حداقل ۸ کاراکتر باشد" }, 400);
     const stored = await adminPasswordHash(env);
-    if (!(await verifyPassword(current, stored))) return json({ error: "رمز فعلی نادرست است" }, 401);
+    if (!(await verifyPassword(current, stored))) {
+      return json({ error: "رمز فعلی نادرست است" }, 401);
+    }
     await setSetting(env, "admin_password_hash", await hashPassword(next));
     await log(env, "info", "رمز مدیر تغییر کرد");
-    return json({ ok: true }, 200, { "set-cookie": sessionCookie(await makeSession(env), SESSION_TTL) });
+    const token = await makeSession(env);
+    return json({ ok: true }, 200, { "set-cookie": sessionCookie(token, SESSION_TTL) });
   }
 
   if (path === "/api/unlock-today" && method === "POST") {
-    const t = localNow((await getSettings(env)).tz_offset);
-    await env.DB.prepare("DELETE FROM daily_locks WHERE day_key = ?").bind(t.dayKey).run();
+    const s = await getSettings(env);
+    await env.DB.prepare("DELETE FROM daily_locks WHERE day_key = ?")
+      .bind(localNow(s.tz_offset).dayKey).run();
+    await log(env, "info", "قفل ارسال امروز برداشته شد");
     return json({ ok: true });
   }
 
   const sendMatch = path.match(/^\/api\/sends\/(\d+)$/);
   if (sendMatch && method === "GET") {
-    const row = await env.DB.prepare("SELECT * FROM sends WHERE id = ?").bind(Number(sendMatch[1])).first();
+    const row = await env.DB.prepare("SELECT * FROM sends WHERE id = ?")
+      .bind(Number(sendMatch[1])).first();
     if (!row) return json({ error: "یافت نشد" }, 404);
-    const dels = (await env.DB.prepare("SELECT channel, ok, detail FROM deliveries WHERE send_id = ?")
-      .bind(row.id).all()).results || [];
-    return json({ ok: true, send: row, deliveries: dels });
+    const dels = await env.DB
+      .prepare("SELECT channel, ok, detail FROM deliveries WHERE send_id = ?")
+      .bind(row.id).all();
+    return json({ ok: true, send: row, deliveries: dels.results || [] });
   }
 
   return json({ error: "not found" }, 404);
 }
 
-/* ════════════════  ۸) ورودی ورکر  ════════════════ */
+/* =================  ۸) دارایی‌های ایستا و پوستهٔ داشبورد  ================= */
+
+const STATIC_BASES = [
+  "https://cdn.jsdelivr.net/gh/0xzare/aya-of-day-worker@main/public/",
+  "https://raw.githubusercontent.com/0xzare/aya-of-day-worker/main/public/"
+];
+const STATIC_TYPES = {
+  "app.css": "text/css; charset=utf-8",
+  "app.js": "text/javascript; charset=utf-8"
+};
+
+async function serveStatic(name) {
+  const type = STATIC_TYPES[name];
+  if (!type) return new Response("Not found", { status: 404 });
+  for (let i = 0; i < STATIC_BASES.length; i++) {
+    try {
+      const res = await fetch(STATIC_BASES[i] + name, {
+        cf: { cacheTtl: 3600, cacheEverything: true }
+      });
+      if (res.ok) {
+        return new Response(res.body, {
+          headers: { "content-type": type, "cache-control": "public, max-age=1800" }
+        });
+      }
+    } catch (e) { /* منبع بعدی را امتحان کن */ }
+  }
+  return new Response("/* asset unavailable */", { status: 502, headers: { "content-type": type } });
+}
+
+const FAVICON =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
+  '<text y=".9em" font-size="90">\u2618</text></svg>';
+
+const SHELL = [
+  "<!doctype html>",
+  '<html lang="fa" dir="rtl">',
+  "<head>",
+  '<meta charset="utf-8" />',
+  '<meta name="viewport" content="width=device-width, initial-scale=1" />',
+  '<meta name="robots" content="noindex, nofollow" />',
+  '<meta name="color-scheme" content="dark" />',
+  "<title>آیهٔ روز \u2014 داشبورد مدیریتی</title>",
+  '<link rel="icon" href="/favicon.svg" />',
+  '<link rel="stylesheet" href="/static/app.css" />',
+  "</head>",
+  "<body>",
+  '<div id="login" class="wrap center">',
+  '  <form class="card" id="loginForm" style="max-width:340px;width:100%">',
+  '    <div class="brand" style="margin-bottom:6px">',
+  '      <span class="logo">\u2618</span>',
+  "      <div><h1>آیهٔ روز</h1><p>داشبورد مدیریتی</p></div>",
+  "    </div>",
+  '    <label for="pw">رمز عبور</label>',
+  '    <input type="password" id="pw" autocomplete="current-password" required />',
+  '    <div class="err-txt" id="loginErr"></div>',
+  '    <button class="btn primary" type="submit" style="width:100%;margin-top:10px">ورود</button>',
+  "  </form>",
+  "</div>",
+  '<div id="app" class="wrap hidden">',
+  "  <header>",
+  '    <div class="brand">',
+  '      <span class="logo">\u2618</span>',
+  '      <div><h1>آیهٔ روز</h1><p id="subtitle">داشبورد مدیریتی</p></div>',
+  "    </div>",
+  '    <div class="actions">',
+  '      <button class="btn sm" id="btnPreview">پیش‌نمایش</button>',
+  '      <button class="btn sm primary" id="btnSend">ارسال فوری</button>',
+  '      <button class="btn sm ghost" id="btnLogout">خروج</button>',
+  "    </div>",
+  "  </header>",
+  '  <nav class="tabs" id="tabs">',
+  '    <button data-tab="overview" class="active">نمای کلی</button>',
+  '    <button data-tab="channels">کانال‌ها</button>',
+  '    <button data-tab="settings">تنظیمات</button>',
+  '    <button data-tab="history">تاریخچه</button>',
+  '    <button data-tab="logs">لاگ</button>',
+  "  </nav>",
+  '  <section id="tab-overview"></section>',
+  '  <section id="tab-channels" class="hidden"></section>',
+  '  <section id="tab-settings" class="hidden"></section>',
+  '  <section id="tab-history" class="hidden"></section>',
+  '  <section id="tab-logs" class="hidden"></section>',
+  '  <footer>آیهٔ روز \u00b7 نسخهٔ <span id="ver"></span> \u00b7 ' +
+  '<a href="https://github.com/0xzare/aya-of-day-worker" target="_blank" rel="noopener">مخزن کد</a></footer>',
+  "</div>",
+  '<div id="toast"></div>',
+  '<div id="modal" class="hidden">',
+  '  <div class="modal-card"><button id="modalClose">\u2715</button><div id="modalBody"></div></div>',
+  "</div>",
+  '<script src="/static/app.js" defer></' + "script>",
+  "</body>",
+  "</html>"
+].join(NL);
+
+/* =================  ۹) ورودی ورکر  ================= */
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/favicon.svg" || url.pathname === "/favicon.ico") {
+        return new Response(FAVICON, {
+          headers: { "content-type": "image/svg+xml", "cache-control": "public, max-age=86400" }
+        });
+      }
+      if (url.pathname.indexOf("/static/") === 0) {
+        return await serveStatic(url.pathname.slice(8));
+      }
+      if (url.pathname === "/robots.txt") {
+        return new Response("User-agent: *" + NL + "Disallow: /" + NL, {
+          headers: { "content-type": "text/plain; charset=utf-8" }
+        });
+      }
+
       if (!env.DB) {
         return json({ error: "اتصال D1 (binding با نام DB) تنظیم نشده است" }, 500);
       }
       await ensureSchema(env);
 
       if (url.pathname === "/" || url.pathname === "/index.html") {
-        return new Response(renderDashboard(), {
-          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },
+        return new Response(SHELL, {
+          headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" }
         });
       }
-      if (url.pathname === "/robots.txt") {
-        return new Response("User-agent: *\nDisallow: /\n", { headers: { "content-type": "text/plain" } });
-      }
-      if (url.pathname === "/health" || url.pathname.startsWith("/api/")) {
+      if (url.pathname === "/health" || url.pathname.indexOf("/api/") === 0) {
         return await handleAPI(request, env, url);
       }
       return new Response("Not found", { status: 404 });
@@ -1024,182 +1187,10 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(
-      runScheduled(env).catch(async (e) => {
-        try { await log(env, "error", "cron ناموفق", { error: String((e && e.message) || e) }); } catch (x) {}
-      })
-    );
-  },
+    ctx.waitUntil(runScheduled(env).catch(async function (e) {
+      try {
+        await log(env, "error", "cron ناموفق", { error: String((e && e.message) || e) });
+      } catch (x) { /* ignore */ }
+    }));
+  }
 };
-
-/* ════════════════  ۹) داشبورد  ════════════════ */
-
-function renderDashboard() {
-  return DASHBOARD_HTML;
-}
-
-const DASHBOARD_HTML = `<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="robots" content="noindex, nofollow" />
-<title>آیهٔ روز — داشبورد مدیریتی</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='88'>☘</text></svg>" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" />
-<style>
-*{box-sizing:border-box}
-:root{
- --bg:#080f1a; --panel:#0f1a2b; --panel2:#152538; --line:#22364f;
- --txt:#e8eef8; --muted:#8aa0bd; --accent:#2dd4a7; --accent-d:#159c78;
- --ok:#34d399; --warn:#fbbf24; --err:#f87171; --r:14px;
-}
-html,body{margin:0;padding:0}
-body{
- background:radial-gradient(1100px 520px at 85% -12%,#12405c 0%,var(--bg) 58%) fixed;
- color:var(--txt);font-family:Vazirmatn,system-ui,-apple-system,"Segoe UI",sans-serif;
- min-height:100vh;font-size:14.5px;line-height:1.85;
-}
-.hidden{display:none !important}
-.wrap{max-width:1080px;margin:0 auto;padding:22px 16px 70px}
-.center{min-height:100vh;display:flex;align-items:center;justify-content:center}
-.card{background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);
- border:1px solid var(--line);border-radius:var(--r);padding:20px;
- box-shadow:0 18px 40px rgba(0,0,0,.35)}
-.brand{display:flex;align-items:center;gap:12px}
-.brand .logo{font-size:30px;filter:drop-shadow(0 0 12px rgba(45,212,167,.5))}
-.brand h1{margin:0;font-size:19px;font-weight:800;letter-spacing:-.3px}
-.brand p{margin:0;color:var(--muted);font-size:12.5px}
-header{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:18px}
-.actions{display:flex;gap:8px;flex-wrap:wrap}
-.btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
- border-radius:10px;padding:8px 14px;font:inherit;font-size:13px;cursor:pointer;transition:.15s}
-.btn:hover{border-color:var(--accent);transform:translateY(-1px)}
-.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.btn.primary{background:linear-gradient(180deg,var(--accent) 0%,var(--accent-d) 100%);
- color:#04211a;border-color:transparent;font-weight:700}
-.btn.ghost{background:transparent;color:var(--muted)}
-.btn.sm{padding:5px 11px;font-size:12px}
-.tabs{display:flex;gap:6px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px;padding-bottom:2px}
-.tabs button{background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);
- padding:9px 14px;font:inherit;font-size:13.5px;cursor:pointer;white-space:nowrap}
-.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700}
-.grid{display:grid;gap:14px}
-.g2{grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
-.g3{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
-.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.stat .k{color:var(--muted);font-size:12px;margin-bottom:3px}
-.stat .v{font-size:19px;font-weight:800}
-label{display:block;color:var(--muted);font-size:12.5px;margin:12px 0 5px}
-input[type=text],input[type=password],input[type=time],select,textarea{
- width:100%;background:#0a1524;border:1px solid var(--line);border-radius:10px;
- color:var(--txt);padding:9px 12px;font:inherit;font-size:13.5px;outline:none}
-input:focus,select:focus,textarea:focus{border-color:var(--accent)}
-textarea{min-height:80px;resize:vertical;line-height:1.9}
-.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer;color:var(--txt);font-size:13.5px}
-.switch input{width:auto;accent-color:var(--accent);width:17px;height:17px}
-.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:700}
-.pill.ok{background:rgba(52,211,153,.16);color:var(--ok)}
-.pill.warn{background:rgba(251,191,36,.16);color:var(--warn)}
-.pill.err{background:rgba(248,113,113,.16);color:var(--err)}
-.pill.off{background:rgba(138,160,189,.14);color:var(--muted)}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th,td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{color:var(--muted);font-weight:600;font-size:12px}
-.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;direction:ltr;text-align:left}
-.chan-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.chan-title{display:flex;align-items:center;gap:9px;font-weight:800;font-size:15px}
-.hint{color:var(--muted);font-size:12px;margin:6px 0 0}
-.arabic{font-size:20px;line-height:2.4;text-align:center;padding:14px 6px;
- border-radius:12px;background:rgba(45,212,167,.05);border:1px solid var(--line)}
-#toast{position:fixed;bottom:22px;inset-inline-start:22px;background:var(--panel2);
- border:1px solid var(--line);border-radius:11px;padding:11px 16px;font-size:13px;
- opacity:0;transform:translateY(12px);transition:.25s;pointer-events:none;z-index:50;max-width:80vw}
-#toast.show{opacity:1;transform:none}
-#toast.err{border-color:var(--err);color:var(--err)}
-#toast.ok{border-color:var(--ok);color:var(--ok)}
-#modal{position:fixed;inset:0;background:rgba(3,8,15,.72);display:flex;align-items:center;
- justify-content:center;padding:18px;z-index:60;backdrop-filter:blur(3px)}
-.modal-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
- padding:20px;max-width:640px;width:100%;max-height:84vh;overflow:auto;position:relative}
-#modalClose{position:absolute;inset-inline-end:12px;top:10px;background:none;border:0;
- color:var(--muted);font-size:18px;cursor:pointer}
-pre.msg{white-space:pre-wrap;background:#0a1524;border:1px solid var(--line);
- border-radius:10px;padding:14px;font-family:Vazirmatn,sans-serif;font-size:13.5px;line-height:2.1}
-.err-txt{color:var(--err);font-size:12.5px;min-height:18px;margin:8px 0 0}
-footer{color:var(--muted);font-size:12px;text-align:center;margin-top:28px}
-footer a{color:var(--accent);text-decoration:none}
-</style>
-</head>
-<body>
-
-<div id="login" class="wrap center">
-  <form class="card" id="loginForm" style="max-width:340px;width:100%">
-    <div class="brand" style="margin-bottom:6px">
-      <span class="logo">☘</span>
-      <div><h1>آیهٔ روز</h1><p>داشبورد مدیریتی</p></div>
-    </div>
-    <label for="pw">رمز عبور</label>
-    <input type="password" id="pw" autocomplete="current-password" required />
-    <div class="err-txt" id="loginErr"></div>
-    <button class="btn primary" type="submit" style="width:100%;margin-top:10px">ورود</button>
-  </form>
-</div>
-
-<div id="app" class="wrap hidden">
-  <header>
-    <div class="brand">
-      <span class="logo">☘</span>
-      <div><h1>آیهٔ روز</h1><p id="subtitle">داشبورد مدیریتی</p></div>
-    </div>
-    <div class="actions">
-      <button class="btn sm" id="btnPreview">پیش‌نمایش</button>
-      <button class="btn sm primary" id="btnSend">ارسال فوری</button>
-      <button class="btn sm ghost" id="btnLogout">خروج</button>
-    </div>
-  </header>
-
-  <nav class="tabs" id="tabs">
-    <button data-tab="overview" class="active">نمای کلی</button>
-    <button data-tab="channels">کانال‌ها</button>
-    <button data-tab="settings">تنظیمات</button>
-    <button data-tab="history">تاریخچه</button>
-    <button data-tab="logs">لاگ</button>
-  </nav>
-
-  <section id="tab-overview"></section>
-  <section id="tab-channels" class="hidden"></section>
-  <section id="tab-settings" class="hidden"></section>
-  <section id="tab-history" class="hidden"></section>
-  <section id="tab-logs" class="hidden"></section>
-
-  <footer>آیهٔ روز · نسخهٔ <span id="ver"></span> · <a href="https://github.com/0xzare/aya-of-day-worker" target="_blank" rel="noopener">مخزن کد</a></footer>
-</div>
-
-<div id="toast"></div>
-<div id="modal" class="hidden">
-  <div class="modal-card"><button id="modalClose">✕</button><div id="modalBody"></div></div>
-</div>
-
-<script>
-var S = null;
-var CUR = "overview";
-
-function $(id){ return document.getElementById(id); }
-function esc(v){
-  return String(v == null ? "" : v).replace(/[&<>"']/g, function(c){
-    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
-  });
-}
-function fa(v){
-  return String(v == null ? "" : v).replace(/[0-9]/g, function(d){
-    return "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9"[Number(d)];
-  });
-}
-function toast(msg, kind){
-  var t = $("toast");
-  t.textContent = msg;
-  t.className = "show " + (kind || "");
-  clearTimeout(t._h);
-  t._h = setTimeout(function(){ t.className = 

@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "aya-of-day",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-09-01",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+
+  // هر ۵ دقیقه بیدار می‌شود؛ خود ورکر بررسی می‌کند که آیا به ساعت
+  // تنظیم‌شده (به‌وقت تهران) رسیده‌ایم یا نه. این کار اجازه می‌دهد
+  // ساعت ارسال را از داشبورد عوض کنید بدون اینکه دوباره deploy کنید.
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "aya-of-day",
+      "database_id": "298e14ce-03aa-4e73-9a2f-093abc93a22e"
+    }
+  ],
+
+  "routes": [
+    { "pattern": "quran.zareshahi.ir", "custom_domain": true }
+  ]
+
+  // رمزها (با wrangler secret put تنظیم می‌شوند، هرگز در این فایل ننویسید):
+  //   ADMIN_PASSWORD  — رمز اولیهٔ ورود به داشبورد
+  //   SESSION_SECRET  — کلید امضای کوکی نشست
+  //   ENCRYPTION_KEY  — کلید رمزنگاری توکن کانال‌ها (AES-GCM)
+}

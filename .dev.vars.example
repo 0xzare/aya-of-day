@@ -1,0 +1,11 @@
+# کپی کنید به .dev.vars برای توسعهٔ محلی (wrangler dev)
+# در محیط واقعی از `npx wrangler secret put <NAME>` استفاده کنید.
+
+# رمز اولیهٔ ورود به داشبورد (بعد از اولین ورود از داخل داشبورد تغییرش دهید)
+ADMIN_PASSWORD="change-me-please"
+
+# openssl rand -base64 48
+SESSION_SECRET="replace-with-a-long-random-string"
+
+# openssl rand -base64 48
+ENCRYPTION_KEY="replace-with-another-long-random-string"

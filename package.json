@@ -1,0 +1,18 @@
+{
+  "name": "aya-of-day-worker",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Daily Quran verse with Ayatollah Gharaati's Persian translation to Telegram, Eitaa, Rubika, Bale and X — on Cloudflare Workers.",
+  "license": "GPL-3.0",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail --format pretty",
+    "db:init": "wrangler d1 execute aya-of-day --remote --file=./db/schema.sql",
+    "db:init:local": "wrangler d1 execute aya-of-day --local --file=./db/schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.20.0"
+  }
+}

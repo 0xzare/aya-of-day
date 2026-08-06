@@ -7,21 +7,18 @@
  *   scheduled()  → Cron Trigger هر ۵ دقیقه؛ ارسال در ساعت تنظیم‌شده (وقت تهران)
  *   fetch()      → داشبورد مدیریتی + API
  *
- * نکتهٔ سبک: در این فایل عمداً از template literal استفاده نشده تا بتوان متن آن را
- * بدون تغییر در ابزارهای دیپلوی خودکار جاسازی کرد.
- *
  * © Ali Zare Shahi — GPL-3.0
  */
 
 /* =================  ۱) ثابت‌ها  ================= */
 
-const VERSION = "2.1.1";
+const VERSION = "2.1.2";
 const SESSION_COOKIE = "aod_session";
 const SESSION_TTL = 60 * 60 * 12;
 const QURAN_API = "https://api.alquran.cloud/v1";
 const TOTAL_AYAT = 6236;
-const MASK = "\\u2022\\u2022\\u2022\\u2022";
-const NL = "\\n";
+const MASK = "\u2022\u2022\u2022\u2022";
+const NL = "\n";
 
 /* لینک مرجع: پایگاه «قرآن نور» — book=88 یعنی «ترجمه برگرفته از تفسیر نور (قرائتی)» */
 const DEFAULT_LINK_BASE = "https://quran.inoor.ir/fa/ayah";
@@ -67,7 +64,7 @@ const CURATED_REFS = (
 const CHANNEL_DEFS = {
   telegram: {
     label: "تلگرام",
-    icon: "\\u2708\\uFE0F",
+    icon: "\u2708\uFE0F",
     hint: "توکن را از @BotFather بگیرید و ربات را ادمین کانال کنید.",
     fields: [
       { key: "bot_token", label: "توکن ربات", secret: true, required: true },
@@ -77,7 +74,7 @@ const CHANNEL_DEFS = {
   },
   bale: {
     label: "بله",
-    icon: "\\uD83D\\uDCAC",
+    icon: "\uD83D\uDCAC",
     hint: "بازوی بله را از @botfather در ble.ir بسازید.",
     fields: [
       { key: "bot_token", label: "توکن بازو", secret: true, required: true },
@@ -87,7 +84,7 @@ const CHANNEL_DEFS = {
   },
   eitaa: {
     label: "ایتا",
-    icon: "\\uD83D\\uDFE0",
+    icon: "\uD83D\uDFE0",
     hint: "از سرویس ایتایار (eitaayar.ir) توکن بگیرید.",
     fields: [
       { key: "token", label: "توکن ایتایار", secret: true, required: true },
@@ -98,7 +95,7 @@ const CHANNEL_DEFS = {
   },
   rubika: {
     label: "روبیکا",
-    icon: "\\uD83D\\uDFE3",
+    icon: "\uD83D\uDFE3",
     hint: "ربات را با BotFather روبیکا بسازید (rubika.ir/botapi).",
     fields: [
       { key: "bot_token", label: "توکن ربات", secret: true, required: true },
@@ -108,7 +105,7 @@ const CHANNEL_DEFS = {
   },
   twitter: {
     label: "توییتر (X)",
-    icon: "\\uD835\\uDD4F",
+    icon: "\uD835\uDD4F",
     hint: "در developer.x.com دسترسی App را Read and Write کنید، سپس Access Token بسازید.",
     fields: [
       { key: "api_key", label: "API Key", secret: true, required: true },
@@ -172,7 +169,7 @@ function unb64(str) {
   return out;
 }
 function b64u(bytes) {
-  return b64(bytes).replace(/\\+/g, "-").replace(/\\//g, "_").replace(/=+$/, "");
+  return b64(bytes).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 function unb64u(str) {
   return unb64(str.replace(/-/g, "+").replace(/_/g, "/"));
@@ -313,7 +310,7 @@ function toJalali(gy, gm, gd) {
 
 function faNum(x) {
   return String(x).replace(/[0-9]/g, function (d) {
-    return "\\u06F0\\u06F1\\u06F2\\u06F3\\u06F4\\u06F5\\u06F6\\u06F7\\u06F8\\u06F9"[Number(d)];
+    return "\u06F0\u06F1\u06F2\u06F3\u06F4\u06F5\u06F6\u06F7\u06F8\u06F9"[Number(d)];
   });
 }
 function jalaliLabel(t) {
@@ -436,7 +433,7 @@ function pickRef(settings, dayKey) {
     return numberToRef(Number(settings.sequential_cursor) || 1);
   }
   if (mode === "custom") {
-    const list = String(settings.custom_list || "").split(/[\\s,\\u060C]+/).filter(validRef);
+    const list = String(settings.custom_list || "").split(/[\s,\u060C]+/).filter(validRef);
     if (list.length) return list[Math.abs(dayIndex(dayKey)) % list.length];
   }
   const curated = CURATED_REFS.filter(validRef);
@@ -490,18 +487,18 @@ async function fetchAyah(ref, settings) {
 
 function buildMessage(v, s, t) {
   const out = [];
-  out.push("\\u2618 آیهٔ روز \\u2014 " + jalaliLabel(t));
+  out.push("\u2618 آیهٔ روز \u2014 " + jalaliLabel(t));
   if (s.include_arabic === "1" && v.arabic) { out.push(""); out.push(v.arabic); }
   out.push("");
-  out.push("\\uD83D\\uDCD6 " + v.surahName + " \\u2014 آیهٔ " + faNum(v.ayah));
+  out.push("\uD83D\uDCD6 " + v.surahName + " \u2014 آیهٔ " + faNum(v.ayah));
   if (s.include_translation === "1" && v.translation) {
     out.push("");
-    out.push("\\u270D\\uFE0F ترجمهٔ " + (s.translation_label || "") + ":");
+    out.push("\u270D\uFE0F ترجمهٔ " + (s.translation_label || "") + ":");
     out.push(v.translation);
   }
   if (s.include_link === "1") {
     out.push("");
-    out.push("\\uD83D\\uDD17 " + verseLink(v, s));
+    out.push("\uD83D\uDD17 " + verseLink(v, s));
   }
   if (s.hashtags) { out.push(""); out.push(s.hashtags); }
   if (s.footer) out.push(s.footer);
@@ -515,14 +512,14 @@ async function readBody(res) {
   try { return JSON.parse(text); } catch (e) { return { raw: text.slice(0, 300) }; }
 }
 function failure(status, data) {
-  return { ok: false, detail: "HTTP " + status + " \\u00B7 " + JSON.stringify(data).slice(0, 350) };
+  return { ok: false, detail: "HTTP " + status + " \u00B7 " + JSON.stringify(data).slice(0, 350) };
 }
 function missingFields(cfg, keys) {
   const gone = keys.filter(function (k) { return !cfg[k]; });
   return gone.length ? "مقادیر لازم تنظیم نشده: " + gone.join(", ") : null;
 }
 function trimSlash(u) {
-  return String(u).replace(/\\/+$/, "");
+  return String(u).replace(/\/+$/, "");
 }
 
 async function sendTelegramLike(base, token, chatId, text) {
@@ -598,7 +595,7 @@ function splitTweets(text, limit) {
   const cap = limit || 262;
   const clean = String(text).trim();
   if (Array.from(clean).length <= 280) return [clean];
-  const tokens = clean.split(/(\\s+)/);
+  const tokens = clean.split(/(\s+)/);
   const chunks = [];
   let cur = "";
   for (let i = 0; i < tokens.length; i++) {
@@ -611,7 +608,7 @@ function splitTweets(text, limit) {
     }
     if (Array.from(cur + token).length > cap && cur.trim()) {
       chunks.push(cur.trim());
-      cur = token.replace(/^\\s+/, "");
+      cur = token.replace(/^\s+/, "");
     } else {
       cur += token;
     }
@@ -642,8 +639,8 @@ async function sendTwitter(cfg, text) {
     if (!res.ok || !data.data || !data.data.id) {
       return {
         ok: false,
-        detail: "بخش " + (i + 1) + "/" + parts.length + " \\u00B7 HTTP " + res.status +
-          " \\u00B7 " + JSON.stringify(data).slice(0, 300)
+        detail: "بخش " + (i + 1) + "/" + parts.length + " \u00B7 HTTP " + res.status +
+          " \u00B7 " + JSON.stringify(data).slice(0, 300)
       };
     }
     replyTo = data.data.id;
@@ -749,7 +746,7 @@ async function dispatch(env, options) {
   await log(
     env,
     status === "ok" ? "info" : status === "partial" ? "warn" : "error",
-    "ارسال (" + trigger + ") \\u2014 آیهٔ " + verse.ref,
+    "ارسال (" + trigger + ") \u2014 آیهٔ " + verse.ref,
     { status: status, results: settled }
   );
 
@@ -929,9 +926,9 @@ async function handleAPI(request, env, url) {
     const history = historyRes.results || [];
 
     /*
-     * نکته: bind را باید روی خودِ prepared statement صدا زد.
+     * نکته: bind باید روی خودِ prepared statement صدا زده شود.
      * فراخوانی stmt.bind.apply(null, ids) باعث خطای
-     * "Cannot read properties of null (reading 'dbSession')" و قفل‌شدن داشبورد می‌شد.
+     * Cannot read properties of null (reading dbSession) و قفل‌شدن داشبورد می‌شد.
      */
     let deliveries = [];
     if (history.length) {
@@ -978,7 +975,7 @@ async function handleAPI(request, env, url) {
       if (!(k in incoming)) continue;
       let v = String(incoming[k] == null ? "" : incoming[k]);
       if (k === "send_time") {
-        if (!/^\\d{1,2}:\\d{2}$/.test(v)) return json({ error: "قالب ساعت ارسال باید HH:MM باشد" }, 400);
+        if (!/^\d{1,2}:\d{2}$/.test(v)) return json({ error: "قالب ساعت ارسال باید HH:MM باشد" }, 400);
         const p = v.split(":");
         v = pad2(Math.min(23, Math.max(0, Number(p[0]) || 0))) + ":" +
           pad2(Math.min(59, Math.max(0, Number(p[1]) || 0)));
@@ -994,7 +991,7 @@ async function handleAPI(request, env, url) {
     return json({ ok: true });
   }
 
-  const channelMatch = path.match(/^\\/api\\/channels\\/([a-z]+)$/);
+  const channelMatch = path.match(/^\/api\/channels\/([a-z]+)$/);
   if (channelMatch && method === "POST") {
     const id = channelMatch[1];
     if (!CHANNEL_DEFS[id]) return json({ error: "کانال ناشناخته" }, 404);
@@ -1006,7 +1003,7 @@ async function handleAPI(request, env, url) {
     return json({ ok: true, config: maskConfig(id, merged), enabled: enabled });
   }
 
-  const testMatch = path.match(/^\\/api\\/test\\/([a-z]+)$/);
+  const testMatch = path.match(/^\/api\/test\/([a-z]+)$/);
   if (testMatch && method === "POST") {
     const id = testMatch[1];
     if (!CHANNEL_DEFS[id]) return json({ error: "کانال ناشناخته" }, 404);
@@ -1065,7 +1062,7 @@ async function handleAPI(request, env, url) {
     return json({ ok: true });
   }
 
-  const sendMatch = path.match(/^\\/api\\/sends\\/(\\d+)$/);
+  const sendMatch = path.match(/^\/api\/sends\/(\d+)$/);
   if (sendMatch && method === "GET") {
     const row = await env.DB.prepare("SELECT * FROM sends WHERE id = ?")
       .bind(Number(sendMatch[1])).first();
@@ -1110,7 +1107,7 @@ async function serveStatic(name) {
 
 const FAVICON =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">' +
-  '<text y=".9em" font-size="90">\\u2618</text></svg>';
+  '<text y=".9em" font-size="90">\u2618</text></svg>';
 
 const SHELL = [
   "<!doctype html>",
@@ -1120,7 +1117,7 @@ const SHELL = [
   '<meta name="viewport" content="width=device-width, initial-scale=1" />',
   '<meta name="robots" content="noindex, nofollow" />',
   '<meta name="color-scheme" content="dark" />',
-  "<title>آیهٔ روز \\u2014 داشبورد مدیریتی</title>",
+  "<title>آیهٔ روز \u2014 داشبورد مدیریتی</title>",
   '<link rel="icon" href="/favicon.svg" />',
   '<link rel="stylesheet" href="/static/app.css" />',
   "</head>",
@@ -1128,7 +1125,7 @@ const SHELL = [
   '<div id="login" class="wrap center">',
   '  <form class="card" id="loginForm" style="max-width:340px;width:100%">',
   '    <div class="brand" style="margin-bottom:6px">',
-  '      <span class="logo">\\u2618</span>',
+  '      <span class="logo">\u2618</span>',
   "      <div><h1>آیهٔ روز</h1><p>داشبورد مدیریتی</p></div>",
   "    </div>",
   '    <label for="pw">رمز عبور</label>',
@@ -1140,7 +1137,7 @@ const SHELL = [
   '<div id="app" class="wrap hidden">',
   "  <header>",
   '    <div class="brand">',
-  '      <span class="logo">\\u2618</span>',
+  '      <span class="logo">\u2618</span>',
   '      <div><h1>آیهٔ روز</h1><p id="subtitle">داشبورد مدیریتی</p></div>',
   "    </div>",
   '    <div class="actions">',
@@ -1161,12 +1158,12 @@ const SHELL = [
   '  <section id="tab-settings" class="hidden"></section>',
   '  <section id="tab-history" class="hidden"></section>',
   '  <section id="tab-logs" class="hidden"></section>',
-  '  <footer>آیهٔ روز \\u00b7 نسخهٔ <span id="ver"></span> \\u00b7 ' +
+  '  <footer>آیهٔ روز \u00b7 نسخهٔ <span id="ver"></span> \u00b7 ' +
   '<a href="https://github.com/0xzare/aya-of-day" target="_blank" rel="noopener">مخزن کد</a></footer>',
   "</div>",
   '<div id="toast"></div>',
   '<div id="modal" class="hidden">',
-  '  <div class="modal-card"><button id="modalClose">\\u2715</button><div id="modalBody"></div></div>',
+  '  <div class="modal-card"><button id="modalClose">\u2715</button><div id="modalBody"></div></div>',
   "</div>",
   '<script src="/static/app.js" defer></' + "script>",
   "</body>",

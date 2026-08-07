@@ -1,10 +1,15 @@
 {
-  "name": "aya-of-day-worker",
-  "version": "2.0.0",
+  "name": "aya-of-day",
+  "version": "2.1.2",
   "private": true,
   "type": "module",
   "description": "Daily Quran verse with Ayatollah Gharaati's Persian translation to Telegram, Eitaa, Rubika, Bale and X — on Cloudflare Workers.",
   "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/0xzare/aya-of-day.git"
+  },
+  "homepage": "https://quran.zareshahi.ir",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

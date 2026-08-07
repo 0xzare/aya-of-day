@@ -188,6 +188,18 @@ async function testChan(id, btn) {
 
 /* ── تنظیمات ── */
 
+function linkSample() {
+  const base = String(($("st_link_base") || {}).value || "").replace(/\/+$/, "");
+  const book = String(($("st_link_book") || {}).value || "").trim();
+  if (!base) return "—";
+  return base + "/80/17/translate" + (book ? "?book=" + encodeURIComponent(book) : "");
+}
+
+function updateLinkSample() {
+  const el = $("linkSample");
+  if (el) el.textContent = linkSample();
+}
+
 function renderSettings() {
   const s = S.settings;
   let h = '<div class="grid g2">';
@@ -215,9 +227,21 @@ function renderSettings() {
   h += '<label>نام مترجم در متن پیام</label><input type="text" id="st_translation_label" value="' + esc(s.translation_label) + '" />';
   h += '<label class="switch"><input type="checkbox" id="st_include_arabic"' + (s.include_arabic === "1" ? " checked" : "") + " /> نمایش متن عربی</label>";
   h += '<label class="switch"><input type="checkbox" id="st_include_translation"' + (s.include_translation === "1" ? " checked" : "") + " /> نمایش ترجمه</label>";
-  h += '<label class="switch"><input type="checkbox" id="st_include_link"' + (s.include_link === "1" ? " checked" : "") + " /> افزودن لینک quran.com</label>";
   h += '<label>هشتگ‌ها</label><input type="text" id="st_hashtags" value="' + esc(s.hashtags) + '" />';
   h += '<label>پانویس (اختیاری)</label><input type="text" id="st_footer" value="' + esc(s.footer) + '" /></div>';
+
+  h += '<div class="card"><div class="chan-title">🔗 لینک مرجع آیه</div>';
+  h += '<label class="switch" style="margin-top:12px"><input type="checkbox" id="st_include_link"' +
+    (s.include_link === "1" ? " checked" : "") + " /> افزودن لینک مرجع به انتهای پیام</label>";
+  h += '<label>آدرس پایه</label><input type="text" id="st_link_base" value="' + esc(s.link_base) +
+    '" placeholder="https://quran.inoor.ir/fa/ayah" spellcheck="false" dir="ltr" />';
+  h += '<label>شناسهٔ ترجمه در قرآن نور (book)</label><input type="text" id="st_link_book" value="' + esc(s.link_book) +
+    '" placeholder="88" spellcheck="false" dir="ltr" />';
+  h += '<label>نمونهٔ لینک ساخته‌شده</label>';
+  h += '<div class="mono" id="linkSample" dir="ltr" style="word-break:break-all;padding:8px 10px;background:#0b1523;border-radius:10px"></div>';
+  h += '<p class="hint">قالب: <span class="mono" dir="ltr">{پایه}/{سوره}/{آیه}/translate?book={book}</span><br />' +
+    'مقدار <span class="mono">88</span> در قرآن نور یعنی «ترجمه برگرفته از تفسیر نور (قرائتی)». ' +
+    'اگر فیلد book را خالی بگذارید، پارامتر آن به لینک اضافه نمی‌شود.</p></div>';
 
   h += '<div class="card"><div class="chan-title">🔐 امنیت و نگهداری</div>';
   h += '<label>رمز فعلی</label><input type="password" id="pw_cur" autocomplete="current-password" />';
@@ -229,6 +253,9 @@ function renderSettings() {
   h += '</div><div style="margin-top:18px"><button class="btn primary" id="btnSaveSettings">ذخیرهٔ تنظیمات</button></div>';
 
   $("tab-settings").innerHTML = h;
+  updateLinkSample();
+  $("st_link_base").addEventListener("input", updateLinkSample);
+  $("st_link_book").addEventListener("input", updateLinkSample);
   $("btnSaveSettings").onclick = saveSettings;
   $("btnPw").onclick = changePw;
   $("btnUnlock").onclick = async () => {
@@ -240,10 +267,10 @@ function renderSettings() {
 async function saveSettings() {
   const texts = ["send_time", "tz_offset", "window_minutes", "selection_mode",
     "sequential_cursor", "custom_list", "arabic_edition", "translation_edition",
-    "translation_label", "hashtags", "footer"];
+    "translation_label", "link_base", "link_book", "hashtags", "footer"];
   const flags = ["enabled", "include_arabic", "include_translation", "include_link"];
   const out = {};
-  texts.forEach((k) => { const el = $("st_" + k); if (el) out[k] = el.value; });
+  texts.forEach((k) => { const el = $("st_" + k); if (el) out[k] = el.value.trim(); });
   flags.forEach((k) => { const el = $("st_" + k); if (el) out[k] = el.checked ? "1" : "0"; });
   try {
     await post("/api/settings", { settings: out });
